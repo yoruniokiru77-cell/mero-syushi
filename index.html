@@ -327,7 +327,7 @@
           <div class="form-section-header" id="fanzaDateHeader">📅 入力日: —</div>
           <div style="padding:12px 14px;" id="agencyBlocksContainer"></div>
         </div>
-        <div class="section-title">本部所属タレント</div>
+        <div class="section-title" style="display:flex;justify-content:space-between;align-items:center">本部所属タレント<button onclick="showBookmarklet()" style="font-size:12px;padding:4px 10px;border-radius:8px;border:1px solid var(--purple);background:var(--purple-bg);color:var(--purple);cursor:pointer;font-family:inherit">📥 ブックマークレット</button></div>
         <div class="form-section">
           <div class="form-section-header">個別ポイント入力</div>
           <div class="talent-list" id="talentList"></div>
@@ -1199,6 +1199,71 @@ function openModal(mode){
 function closeModal(){document.getElementById('modalOverlay').classList.remove('open');}
 function closeModalOutside(e){if(e.target===document.getElementById('modalOverlay'))closeModal();}
 function normName(s){return(s||'').replace(/[\s　]+/g,'');}
+function genBookmarklet(){
+  var U=SB_URL,K=SB_KEY;
+  var code='(function(){'
+    +'var U="'+U+'",K="'+K+'",'
+    +'H={apikey:K,"Authorization":"Bearer "+K,"Content-Type":"application/json"};'
+    +'function normN(s){return(s||"").replace(/[\\s\\u3000]+/g,"");}'
+    +'function parse(){'
+    +'var out=[],seen={};'
+    +'document.querySelectorAll("tr").forEach(function(row){'
+    +'var cells=Array.from(row.querySelectorAll("td"));'
+    +'var name="",pts=0;'
+    +'cells.forEach(function(c){'
+    +'var t=(c.textContent||"").trim();'
+    +'var pm=t.match(/^([0-9,]+)\\s*pt$/i);'
+    +'if(pm){pts=parseInt(pm[1].replace(/,/g,""));}'
+    +'else if(t&&t.length>=2&&t.length<=15&&!/^[\\d\\s]+$/.test(t)&&!/[年月日\\/]/.test(t)){name=name||t;}'
+    +'});'
+    +'var k=normN(name);'
+    +'if(pts>0&&k&&!seen[k]){seen[k]=1;out.push({name:k,pts:pts});}'
+    +'});'
+    +'return out;}'
+    +'var pd=parse();'
+    +'if(!pd.length){alert("ポイントデータが見つかりません。FANZAの精算ページで実行してください。");return;}'
+    +'var now=new Date(),ym=now.getFullYear()+"-"+("0"+(now.getMonth()+1)).slice(-2),today=now.toISOString().slice(0,10);'
+    +'Promise.all(['
+    +'fetch(U+"/rest/v1/talents?select=id,name,genji_name",{headers:H}).then(function(r){return r.json();}),'
+    +'fetch(U+"/rest/v1/outsourcing_talent?year_month=eq."+ym,{headers:H}).then(function(r){return r.json();})'
+    +']).then(function(rs){'
+    +'var talents=rs[0],existing=rs[1],matched=[],skipped=[];'
+    +'pd.forEach(function(row){'
+    +'var t=talents.find(function(x){return normN(x.genji_name||"")===row.name||normN(x.name||"")===row.name;});'
+    +'if(!t){skipped.push(row.name);return;}'
+    +'matched.push({id:t.id,honmei:t.name,pts:row.pts,amount:Math.round(row.pts*0.3)});'
+    +'});'
+    +'if(!matched.length){alert("マッチするタレントが見つかりません\\nFANZA名: "+pd.map(function(r){return r.name;}).join("、")+"\\n\\nタレントマスタの源氏名と一致しているか確認してください。");return;}'
+    +'var msg="以下のポイントを保存しますか？\\n\\n";'
+    +'matched.forEach(function(m){msg+=m.honmei+"  "+m.pts.toLocaleString()+"pt → "+m.amount.toLocaleString()+"円\\n";});'
+    +'if(skipped.length)msg+="\\nスキップ: "+skipped.join("、");'
+    +'if(!confirm(msg))return;'
+    +'Promise.all(matched.map(function(m){'
+    +'var rec=existing.find(function(r){return r.talent_id===m.id;});'
+    +'if(rec){return fetch(U+"/rest/v1/outsourcing_talent?id=eq."+rec.id,{method:"PATCH",headers:Object.assign({},H,{Prefer:"return=minimal"}),body:JSON.stringify({amount:m.amount,points:m.pts})});}'
+    +'return fetch(U+"/rest/v1/outsourcing_talent",{method:"POST",headers:Object.assign({},H,{Prefer:"return=minimal"}),body:JSON.stringify({year_month:ym,talent_id:m.id,amount:m.amount,points:m.pts,date:today})});'
+    +'})).then(function(){alert("✓ "+matched.length+"名のポイントを保存しました。\\nアプリを再読込してください。");}).catch(function(e){alert("保存エラー: "+e.message);});'
+    +'}).catch(function(e){alert("読込エラー: "+e.message);});'
+    +'})();';
+  return 'javascript:'+encodeURIComponent(code);
+}
+function showBookmarklet(){
+  var url=genBookmarklet();
+  var ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML='<div style="background:var(--surface);border-radius:16px;padding:24px;max-width:360px;width:100%">'
+    +'<div style="font-size:16px;font-weight:700;margin-bottom:12px">📥 FANZAブックマークレット</div>'
+    +'<div style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6">'
+    +'① 下のボタンをブラウザのお気に入りバーにドラッグ<br>'
+    +'② FANZAの精算ページを開いた状態でクリック<br>'
+    +'③ タレントのptが自動取り込みされます'
+    +'</div>'
+    +'<a href="'+url+'" style="display:block;text-align:center;padding:12px;background:var(--purple);color:#fff;border-radius:10px;font-size:14px;font-weight:700;text-decoration:none;margin-bottom:16px">⭐ FANZA取込</a>'
+    +'<div style="font-size:11px;color:var(--text3);margin-bottom:16px">※ お気に入りバーが表示されていない場合は Ctrl+Shift+B で表示できます</div>'
+    +'<button onclick="this.closest(\'div\').parentNode.remove()" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-family:inherit">閉じる</button>'
+    +'</div>';
+  document.body.appendChild(ov);
+}
 async function confirmModal(){
   const name=normName((document.getElementById('m_name')||{}).value);if(!name)return;
   setLoading(true);

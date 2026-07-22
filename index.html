@@ -1065,7 +1065,7 @@ function renderTalentMaster(){
         const ref=masters.referrers.find(r=>r.id===t.referrer_id);
         const u=masters.users.find(x=>x.id===t.created_by);
         const d=t.created_at?.slice(0,10).replace(/-/g,'/');
-        return`<div class="master-row"><div class="master-avatar talent">${t.name.charAt(0)}</div><div class="master-row-info"><div class="master-row-name">${t.name}${t.genji_name?`<span style="font-size:12px;font-weight:400;color:var(--text3);margin-left:4px">（${t.genji_name}）</span>`:''}</div><div class="master-row-sub">紹介者: ${ref?.name||'なし'} (${t.rate||0}%)　登録: ${d} by ${u?.name||'—'}</div></div><button class="master-del-btn" onclick="delMasterDB('talents','${t.id}')">×</button></div>`;
+        return`<div class="master-row"><div class="master-avatar talent">${t.name.charAt(0)}</div><div class="master-row-info"><div class="master-row-name">${t.name}${t.genji_name?`<span style="font-size:12px;font-weight:400;color:var(--text3);margin-left:4px">（${t.genji_name}）</span>`:''}</div><div class="master-row-sub">紹介者: ${ref?.name||'なし'} (${t.rate||0}%)　登録: ${d} by ${u?.name||'—'}</div></div><button class="master-del-btn" style="background:var(--surface2);color:var(--text2);margin-right:4px;font-size:12px;width:auto;padding:0 8px;" onclick="openEditTalent('${t.id}')">編集</button><button class="master-del-btn" onclick="delMasterDB('talents','${t.id}')">×</button></div>`;
       }).join('')
     :'<div class="empty-row">未登録</div>';
   document.getElementById('talentCount').textContent=masters.talents.length+'名';
@@ -1099,6 +1099,31 @@ function renderStaffMaster(){
   document.getElementById('staffCount').textContent=masters.staff.length+'名';
 }
 
+function openEditTalent(id){
+  const t=masters.talents.find(x=>x.id===id);
+  if(!t)return;
+  const overlay=document.getElementById('modalOverlay');
+  document.getElementById('modalTitle').textContent='タレントを編集';
+  document.getElementById('modalBody').innerHTML=`
+    <div class="modal-field"><label>本名</label><input type="text" id="m_name" value="${t.name||''}" placeholder="例：山田 花子"></div>
+    <div class="modal-field"><label>源氏名 <span style="font-size:11px;color:#aaa">（サブ表示）</span></label><input type="text" id="m_genji" value="${t.genji_name||''}" placeholder="例：あい"></div>`;
+  const okBtn=document.getElementById('modalOk');
+  okBtn.className='modal-ok purple';
+  okBtn.textContent='保存';
+  okBtn.onclick=async()=>{
+    const name=document.getElementById('m_name').value.trim();
+    if(!name)return;
+    const genji_name=document.getElementById('m_genji').value.trim()||null;
+    setLoading(true);
+    try{
+      await sbPatch('talents',`id=eq.${id}`,{name,genji_name});
+      closeModal();
+      await loadMasters();
+    }catch(e){alert('保存エラー: '+e.message);}
+    setLoading(false);
+  };
+  overlay.classList.add('open');
+}
 async function delMasterDB(table,id){
   if(!confirm('削除しますか？'))return;
   setLoading(true);
@@ -1137,7 +1162,10 @@ function openModal(mode){
   const tpl=MODAL_TPLS[mode];
   document.getElementById('modalTitle').textContent=tpl.title;
   document.getElementById('modalBody').innerHTML=tpl.html;
-  document.getElementById('modalOk').className='modal-ok '+tpl.ok;
+  const okBtn=document.getElementById('modalOk');
+  okBtn.className='modal-ok '+tpl.ok;
+  okBtn.textContent='追加する';
+  okBtn.onclick=confirmModal;
   if(mode==='talent'){
     const sel=document.getElementById('m_ref');
     masters.referrers.forEach(r=>{const o=document.createElement('option');o.value=r.id;o.textContent=r.name;sel.appendChild(o);});

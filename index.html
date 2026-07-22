@@ -874,10 +874,12 @@ function fmtBytes(b){return b>1048576?(b/1048576).toFixed(1)+' MB':b>1024?(b/102
 function calcPt(pt){return(!pt||isNaN(pt))?null:Math.floor(pt*0.57/1.05*1.1);}
 function calcTalent(input){
   const row=input.closest('.talent-row');
-  const amount=calcPt(Number(input.value));
-  row.querySelector('.talent-calc').textContent=amount!==null?fmt(amount):'¥—';
+  const pt=Number(input.value);
+  const pay=(pt&&!isNaN(pt))?Math.round(pt*0.3):null;
+  row.querySelector('.talent-calc').textContent=pay!==null?fmt(pay):'¥—';
   const rateEl=row.querySelector('.referrer-calc');
-  if(rateEl&&amount!==null){const rate=Number(row.dataset.rate||0);rateEl.textContent=rate>0?'−'+fmt(Math.floor(amount*rate/100)):'';}
+  const income=calcPt(pt);
+  if(rateEl&&income!==null){const rate=Number(row.dataset.rate||0);rateEl.textContent=rate>0?'−'+fmt(Math.floor(income*rate/100)):'';}
   else if(rateEl)rateEl.textContent='';
   updateRefSummary();
 }
@@ -903,7 +905,7 @@ function renderTalentList(){
         const ref=masters.referrers.find(r=>r.id===t.referrer_id);
         return`<div class="talent-row" data-id="${t.id}" data-referrer="${ref?.name||''}" data-rate="${t.rate||0}">
           <div class="talent-main-row">
-            <div class="talent-name">${t.name}</div>
+            <div class="talent-name">${t.name}${t.genji_name?`<span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:4px">（${t.genji_name}）</span>`:''}</div>
             <input type="number" class="talent-input" placeholder="pt" oninput="calcTalent(this)">
             <div class="talent-calc">¥—</div>
           </div>
@@ -1063,7 +1065,7 @@ function renderTalentMaster(){
         const ref=masters.referrers.find(r=>r.id===t.referrer_id);
         const u=masters.users.find(x=>x.id===t.created_by);
         const d=t.created_at?.slice(0,10).replace(/-/g,'/');
-        return`<div class="master-row"><div class="master-avatar talent">${t.name.charAt(0)}</div><div class="master-row-info"><div class="master-row-name">${t.name}</div><div class="master-row-sub">紹介者: ${ref?.name||'なし'} (${t.rate||0}%)　登録: ${d} by ${u?.name||'—'}</div></div><button class="master-del-btn" onclick="delMasterDB('talents','${t.id}')">×</button></div>`;
+        return`<div class="master-row"><div class="master-avatar talent">${t.name.charAt(0)}</div><div class="master-row-info"><div class="master-row-name">${t.name}${t.genji_name?`<span style="font-size:12px;font-weight:400;color:var(--text3);margin-left:4px">（${t.genji_name}）</span>`:''}</div><div class="master-row-sub">紹介者: ${ref?.name||'なし'} (${t.rate||0}%)　登録: ${d} by ${u?.name||'—'}</div></div><button class="master-del-btn" onclick="delMasterDB('talents','${t.id}')">×</button></div>`;
       }).join('')
     :'<div class="empty-row">未登録</div>';
   document.getElementById('talentCount').textContent=masters.talents.length+'名';
@@ -1116,7 +1118,8 @@ const MODAL_TPLS={
     <div class="modal-field"><label>パスワード</label><input type="password" id="m_pw" placeholder="••••••••"></div>
     <div class="modal-field"><label>権限</label><select id="m_role"><option value="staff">スタッフ</option><option value="admin">管理者</option></select></div>`},
   talent:{title:'タレントを追加',ok:'purple',html:`
-    <div class="modal-field"><label>名前</label><input type="text" id="m_name" placeholder="例：あい"></div>
+    <div class="modal-field"><label>本名</label><input type="text" id="m_name" placeholder="例：山田 花子"></div>
+    <div class="modal-field"><label>源氏名 <span style="font-size:11px;color:#aaa">（サブ表示）</span></label><input type="text" id="m_genji" placeholder="例：あい"></div>
     <div class="modal-field"><label>紹介者</label><select id="m_ref"><option value="">なし</option></select></div>
     <div class="modal-field"><label>報酬率 (%)</label><input type="number" id="m_rate" placeholder="例：10" min="0" max="100"></div>`},
   agency:{title:'代理店を追加',ok:'green',html:`
@@ -1158,7 +1161,8 @@ async function confirmModal(){
     }else if(modalMode==='talent'){
       const referrer_id=(document.getElementById('m_ref')||{}).value||null;
       const rate=Number((document.getElementById('m_rate')||{}).value)||0;
-      await sbPost('talents',{name,referrer_id:referrer_id||null,rate,created_by:currentUser.id});
+      const genji_name=(document.getElementById('m_genji')||{}).value?.trim()||null;
+      await sbPost('talents',{name,genji_name,referrer_id:referrer_id||null,rate,created_by:currentUser.id});
     }else if(modalMode==='agency'){
       const mgr_id=(document.getElementById('m_mgrid')||{}).value?.trim()||null;
       await sbPost('agencies',{name,mgr_id});

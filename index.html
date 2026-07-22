@@ -1133,9 +1133,9 @@ function openEditTalent(id){
   okBtn.className='modal-ok purple';
   okBtn.textContent='保存';
   okBtn.onclick=async()=>{
-    const name=document.getElementById('m_name').value.trim();
+    const name=normName(document.getElementById('m_name').value);
     if(!name)return;
-    const genji_name=document.getElementById('m_genji').value.trim()||null;
+    const genji_name=normName(document.getElementById('m_genji').value)||null;
     setLoading(true);
     try{
       await sbPatch('talents',`id=eq.${id}`,{name,genji_name});
@@ -1198,8 +1198,9 @@ function openModal(mode){
 }
 function closeModal(){document.getElementById('modalOverlay').classList.remove('open');}
 function closeModalOutside(e){if(e.target===document.getElementById('modalOverlay'))closeModal();}
+function normName(s){return(s||'').replace(/[\s　]+/g,'');}
 async function confirmModal(){
-  const name=(document.getElementById('m_name')||{}).value?.trim();if(!name)return;
+  const name=normName((document.getElementById('m_name')||{}).value);if(!name)return;
   setLoading(true);
   try{
     if(modalMode==='user'){
@@ -1211,7 +1212,7 @@ async function confirmModal(){
     }else if(modalMode==='talent'){
       const referrer_id=(document.getElementById('m_ref')||{}).value||null;
       const rate=Number((document.getElementById('m_rate')||{}).value)||0;
-      const genji_name=(document.getElementById('m_genji')||{}).value?.trim()||null;
+      const genji_name=normName((document.getElementById('m_genji')||{}).value)||null;
       await sbPost('talents',{name,genji_name,referrer_id:referrer_id||null,rate,created_by:currentUser.id});
     }else if(modalMode==='agency'){
       const mgr_id=(document.getElementById('m_mgrid')||{}).value?.trim()||null;

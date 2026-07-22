@@ -391,12 +391,8 @@
       </div>
 
       <div class="out-panel active" id="outpanel-talent">
-        <div class="form-section">
-          <div class="form-row"><div class="form-label">支払日</div><input type="date" class="form-input" id="outDate"></div>
-        </div>
         <div id="outTalentRows"></div>
-        <button class="submit-btn purple" onclick="submitOutTalentAll()">一括登録する</button>
-        <div class="section-title">今月 タレント報酬</div>
+        <div class="section-title" style="margin-top:16px">今月 タレント報酬</div>
         <div class="recent-card" id="outTalentList"><div class="empty-row">データなし</div></div>
       </div>
 
@@ -975,34 +971,47 @@ function renderOutSelects(){
   const agySel=document.getElementById('outAgencySel');
   agySel.innerHTML='<option value="">— 選択 —</option>'+masters.agencies.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');
 }
+const outTalentTimers={};
 function renderOutTalentRows(){
   const honbu=masters.talents.filter(t=>!t.agency_id);
   const el=document.getElementById('outTalentRows');
   if(!el)return;
   if(!honbu.length){el.innerHTML='<div class="empty-row">本部タレントが登録されていません</div>';return;}
   el.innerHTML=honbu.map(t=>{
-    const paid=monthly.outTalent.filter(r=>r.talent_id===t.id).reduce((s,r)=>s+(r.amount||0),0);
-    return`<div class="talent-row" style="border-bottom:1px solid var(--border);padding:8px 0;">
+    const rec=monthly.outTalent.find(r=>r.talent_id===t.id);
+    const pts=rec?Math.round((rec.amount||0)/0.3):0;
+    const amt=rec?rec.amount:0;
+    return`<div class="talent-row" style="border-bottom:1px solid var(--border);padding:10px 0;" data-tid="${t.id}">
       <div class="talent-main-row">
         <div class="talent-name">${t.name}${t.genji_name?`<span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:4px">（${t.genji_name}）</span>`:''}</div>
-        <input type="number" class="talent-input" placeholder="0" id="outamt-${t.id}" ${paid?`value="${paid}"`:''}><div style="font-size:11px;color:var(--text3);width:36px">円</div>
+        <input type="number" class="talent-input" placeholder="0" id="outpt-${t.id}" value="${pts||''}" oninput="autoSaveTalentPt('${t.id}',this.value)">
+        <div style="font-size:11px;color:var(--text3);width:20px">pt</div>
       </div>
-      ${paid?`<div style="font-size:11px;color:var(--accent);text-align:right;margin-top:2px">今月登録済: ${fmt(paid)}</div>`:''}
+      <div style="text-align:right;font-size:12px;color:var(--accent);margin-top:3px" id="outcalc-${t.id}">${amt?fmt(amt)+'（保存済）':''}</div>
     </div>`;
   }).join('');
 }
-async function submitOutTalentAll(){
-  const date=document.getElementById('outDate').value;
-  if(!date){alert('支払日を入力してください');return;}
-  const honbu=masters.talents.filter(t=>!t.agency_id);
-  const rows=honbu.map(t=>({talent_id:t.id,amount:Number(document.getElementById('outamt-'+t.id)?.value||0)})).filter(r=>r.amount>0);
-  if(!rows.length){alert('金額を入力してください');return;}
-  setLoading(true);
-  try{
-    for(const r of rows)await sbPost('outsourcing_talent',{year_month:ym(),talent_id:r.talent_id,amount:r.amount,date,created_by:currentUser.id});
-    await loadMonthData();
-  }catch(e){alert('登録エラー: '+e.message);}
-  setLoading(false);
+async function autoSaveTalentPt(tid,val){
+  const pts=Number(val)||0;
+  const amount=Math.round(pts*0.3);
+  const calcEl=document.getElementById('outcalc-'+tid);
+  if(calcEl)calcEl.textContent=pts>0?fmt(amount)+' 円（計算中...）':'';
+  clearTimeout(outTalentTimers[tid]);
+  outTalentTimers[tid]=setTimeout(async()=>{
+    const rec=monthly.outTalent.find(r=>r.talent_id===tid);
+    const today=new Date();
+    const date=today.toISOString().slice(0,10);
+    try{
+      if(pts===0){
+        if(rec)await sbDelete('outsourcing_talent',`id=eq.${rec.id}`);
+      }else if(rec){
+        await sbPatch('outsourcing_talent',`id=eq.${rec.id}`,{amount,points:pts});
+      }else{
+        await sbPost('outsourcing_talent',{year_month:ym(),talent_id:tid,amount,points:pts,date,created_by:currentUser.id});
+      }
+      await loadMonthData();
+    }catch(e){if(calcEl)calcEl.textContent='保存エラー';}
+  },800);
 }
 async function submitOutAgency(){
   const agency_id=document.getElementById('outAgencySel').value;

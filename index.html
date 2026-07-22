@@ -1255,8 +1255,9 @@ function showBookmarklet(){
     +'② FANZAの精算ページを開いた状態でクリック<br>'
     +'③ タレントのptが自動取り込みされます'
     +'</div>'
-    +'<a href="'+url+'" style="display:block;text-align:center;padding:12px;background:var(--purple);color:#fff;border-radius:10px;font-size:14px;font-weight:700;text-decoration:none;margin-bottom:16px">⭐ FANZA取込</a>'
-    +'<div style="font-size:11px;color:var(--text3);margin-bottom:16px">※ お気に入りバーが表示されていない場合は Ctrl+Shift+B で表示できます</div>'
+    +'<a href="'+url+'" id="_bmkA" style="display:block;text-align:center;padding:12px;background:var(--purple);color:#fff;border-radius:10px;font-size:14px;font-weight:700;text-decoration:none;margin-bottom:8px">⭐ FANZA取込（ここをドラッグ）</a>'
+    +'<button onclick="navigator.clipboard.writeText(document.getElementById(\'_bmkA\').href).then(function(){alert(\'コピーしました。新規ブックマークのURLに貼り付けてください。\');})" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-family:inherit;margin-bottom:8px;font-size:13px">📋 URLをコピー（手動登録用）</button>'
+    +'<div style="font-size:11px;color:var(--text3);margin-bottom:16px">① ドラッグでお気に入りバーへ、またはURLをコピーして新規ブックマークに貼付<br>② FANZAの精算ページでクリック</div>'
     +'<button onclick="this.closest(\'div\').parentNode.remove()" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-family:inherit">閉じる</button>'
     +'</div>';
   document.body.appendChild(ov);
